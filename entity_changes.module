@@ -1,0 +1,84 @@
+<?php
+
+	/**
+	 * Implements hook_permission()
+	 */
+	function entity_changes_permission() {
+		return array(
+			'access now link'    => array(
+				'title'        => t('Access now link'),
+				'description'  => t('can access the now link for a date field'),
+			),
+			'manage now link'    => array(
+				'title'        => t('Manage now link'),
+				'description'  => t('can manage the now link settings'),
+			),
+		);
+	}
+
+		/**
+	 * Implements hook_entity_update()
+	 */
+	function entity_changes_entity_update($entity,$type){
+		//get the original entity
+		$original = $entity->original;
+		//get the fields for this entity
+		$entity_fields = field_info_instances($type,$entity->type);
+		
+		$changed = array();
+		
+		//check to see if the title changed.
+		if (isset($original->title) && ($original->title != $entity->title)){
+			$changed['title'] = array(
+				'label'			=> 'Title',
+				'original'	=> $original->title,
+				'updated'		=> $entity->title,
+			);
+		}
+		
+		//loop through all of the fields
+		foreach ($entity_fields as $field_name=>$field){
+			//get the original value
+			echo $field_name,'<br />';
+			$original_value	= entity_changes_get_field_value($type,$original,$field_name);
+			//get the updated value
+			$updated_value	= entity_changes_get_field_value($type,$entity,$field_name);
+			//comapre hashes of the two values
+			if (md5($original_value) == md5($updated_value)){
+				//value has not changed.
+			}else{
+				$changed[$field_name] = array(
+					'label'			=> $field['label'],
+					'original'	=> $original_value,
+					'updated'		=> $updated_value,
+				);
+			}
+		}
+
+		if (sizeof($changed)>0){
+			//trigger rule
+			echo '<pre>',print_r($changed),'</pre>';exit;
+		}
+	}
+	
+function entity_changes_get_field_value($entity_type, $entity, $field_name){
+	$values = array();
+	
+	$view_field = field_view_field($entity_type, $entity, $field_name);
+	//retrieve value from '#items'
+	if (isset($view_field['#items'])){
+		foreach ($view_field['#items'] as $item){
+			if (isset($item['value'])){
+				$values[] = $item['value'];
+			}else if (isset($item['safe_value'])){
+				$values[] = $item['safe_value'];
+			}else if (isset($item['taxonomy_term'])){
+				$values[] = $item['taxonomy_term']->name;
+			}else if (isset($item['entity'])){
+				$values[] = $item['entity']->title;
+			}
+		}
+	}
+	
+	return implode(', ',$values);
+}	
